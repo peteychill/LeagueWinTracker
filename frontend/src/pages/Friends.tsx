@@ -352,7 +352,7 @@ const Friends: React.FC = () => {
                 value={editingFriend.date_from || ''}
                 onChange={(e) => setEditingFriend({
                   ...editingFriend,
-                  date_from: e.target.value || null
+                  date_from: e.target.value || undefined
                 })}
                 helperText="Optional: Start date for match query (leave empty for recent matches)"
                 sx={{ mb: 2 }}
@@ -366,7 +366,7 @@ const Friends: React.FC = () => {
                 value={editingFriend.date_to || ''}
                 onChange={(e) => setEditingFriend({
                   ...editingFriend,
-                  date_to: e.target.value || null
+                  date_to: e.target.value || undefined
                 })}
                 helperText="Optional: End date for match query (leave empty for recent matches)"
               />

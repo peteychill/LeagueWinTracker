@@ -109,6 +109,11 @@ class FriendListView(generics.ListCreateAPIView):
             summoner_data = riot_service.get_summoner_by_riot_id(riot_id, region)
             logger.info(f"FriendListView: Summoner data received: {summoner_data}")
             
+            # Check if friend already exists
+            if Friend.objects.filter(user=self.request.user, puuid=summoner_data['puuid']).exists():
+                logger.warning(f"FriendListView: Friend with puuid {summoner_data['puuid']} already exists for user")
+                raise ValueError("Friend already exists")
+            
             # Create friend with API data
             friend = serializer.save(
                 user=self.request.user,
@@ -283,8 +288,59 @@ class AnalysisTileListView(generics.ListCreateAPIView):
     def get_queryset(self):
         return AnalysisTile.objects.filter(user=self.request.user).prefetch_related('friends')
     
+    def create(self, request, *args, **kwargs):
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Log the incoming request data
+        logger.info(f"AnalysisTileListView: Received request data: {request.data}")
+        logger.info(f"AnalysisTileListView: Request user: {request.user.username}")
+        
+        try:
+            # Create serializer with request data
+            serializer = self.get_serializer(data=request.data)
+            
+            # Log validation results
+            if serializer.is_valid():
+                logger.info(f"AnalysisTileListView: Data is valid, creating tile")
+                logger.info(f"AnalysisTileListView: Validated data: {serializer.validated_data}")
+                
+                # Perform creation
+                self.perform_create(serializer)
+                
+                logger.info(f"AnalysisTileListView: Tile created successfully: {serializer.instance}")
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            else:
+                logger.error(f"AnalysisTileListView: Validation failed")
+                logger.error(f"AnalysisTileListView: Validation errors: {serializer.errors}")
+                # Log non-field errors if they exist
+                if hasattr(serializer, 'non_field_errors'):
+                    logger.error(f"AnalysisTileListView: Non-field errors: {serializer.non_field_errors()}")
+                else:
+                    logger.error(f"AnalysisTileListView: No non-field errors method available")
+                
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                
+        except Exception as e:
+            logger.error(f"AnalysisTileListView: Unexpected error during tile creation: {str(e)}")
+            logger.error(f"AnalysisTileListView: Error type: {type(e)}")
+            import traceback
+            logger.error(f"AnalysisTileListView: Traceback: {traceback.format_exc()}")
+            return Response(
+                {'error': f'Unexpected error: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            tile = serializer.save(user=self.request.user)
+            logger.info(f"AnalysisTileListView: Tile saved successfully with ID: {tile.id}")
+        except Exception as e:
+            logger.error(f"AnalysisTileListView: Error in perform_create: {str(e)}")
+            raise
 
 
 class AnalysisTileDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -354,18 +410,24 @@ def add_friend_by_riot_id(request):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         # Create friend
-        friend = Friend.objects.create(
-            user=request.user,
-            riot_id=riot_id,
-            puuid=summoner_data['puuid'],
-            summoner_name=summoner_data['gameName'],
-            tag_line=summoner_data['tagLine'],
-            region=region,
-            match_count=match_count,
-            date_from=date_from,
-            date_to=date_to
-        )
-        logger.info(f"Friend created: {friend}")
+        try:
+            friend = Friend.objects.create(
+                user=request.user,
+                riot_id=riot_id,
+                puuid=summoner_data['puuid'],
+                summoner_name=summoner_data['gameName'],
+                tag_line=summoner_data['tagLine'],
+                region=region,
+                match_count=match_count,
+                date_from=date_from,
+                date_to=date_to
+            )
+            logger.info(f"Friend created: {friend}")
+        except Exception as e:
+            logger.error(f"Error creating friend: {e}")
+            return Response({
+                'error': 'Failed to create friend. It may already exist.'
+            }, status=status.HTTP_400_BAD_REQUEST)
         
         # Automatically fetch match data for the new friend
         try:

@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 from decouple import config
 
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -67,11 +68,11 @@ WSGI_APPLICATION = 'league_tracker.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DATABASE_URL', default='postgresql://user:password@db:5432/league_tracker').split('/')[-1],
-        'USER': config('DATABASE_URL', default='postgresql://user:password@db:5432/league_tracker').split('://')[1].split(':')[0],
-        'PASSWORD': config('DATABASE_URL', default='postgresql://user:password@db:5432/league_tracker').split(':')[2].split('@')[0],
-        'HOST': config('DATABASE_URL', default='postgresql://user:password@db:5432/league_tracker').split('@')[1].split(':')[0],
-        'PORT': config('DATABASE_URL', default='postgresql://user:password@db:5432/league_tracker').split(':')[-1].split('/')[0],
+        'NAME': config('DBNAME', default='league_tracker'),
+        'USER': config('DBUSER', default='user'),
+        'PASSWORD': config('DBPW', default='password'),
+        'HOST': config('DBHOST', default='db'),
+        'PORT': config('DBPORT', default='5432'),
     }
 }
 

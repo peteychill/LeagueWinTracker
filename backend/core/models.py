@@ -7,7 +7,7 @@ class Friend(models.Model):
     """Represents a friend that a user wants to track"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='friends')
     riot_id = models.CharField(max_length=100, help_text="Riot ID (e.g., 'SummonerName#TAG')")
-    puuid = models.CharField(max_length=100, unique=True, help_text="Riot PUUID")
+    puuid = models.CharField(max_length=100, help_text="Riot PUUID")
     summoner_name = models.CharField(max_length=100)
     tag_line = models.CharField(max_length=10)
     region = models.CharField(max_length=10, default='na1')
@@ -97,11 +97,16 @@ class AnalysisTile(models.Model):
         """Get matches filtered by tile criteria with optional date range and limit"""
         from django.db.models import Q
         from datetime import datetime
+        import logging
+        
+        logger = logging.getLogger(__name__)
         
         # Get friend PUUIDs
         friend_puuids = list(self.friends.values_list('puuid', flat=True))
+        logger.info(f"AnalysisTile.get_filtered_matches: Found {len(friend_puuids)} friend PUUIDs for tile '{self.name}'")
         
         if not friend_puuids:
+            logger.warning(f"AnalysisTile.get_filtered_matches: No friends found for tile '{self.name}'")
             return Match.objects.none()
         
         # Base query - matches where at least one friend participated
@@ -109,18 +114,26 @@ class AnalysisTile(models.Model):
             participants__puuid__in=friend_puuids
         ).distinct()
         
+        logger.info(f"AnalysisTile.get_filtered_matches: Base query found {base_query.count()} matches")
+        
         # Apply date range filter if specified
         if self.date_from or self.date_to:
+            logger.info(f"AnalysisTile.get_filtered_matches: Applying date filter - from: {self.date_from}, to: {self.date_to}")
             if self.date_from:
                 start_timestamp = int(datetime.combine(self.date_from, datetime.min.time()).timestamp() * 1000)
                 base_query = base_query.filter(game_creation__gte=start_timestamp)
+                logger.info(f"AnalysisTile.get_filtered_matches: Applied start date filter: {start_timestamp}")
             
             if self.date_to:
                 end_timestamp = int(datetime.combine(self.date_to, datetime.max.time()).timestamp() * 1000)
                 base_query = base_query.filter(game_creation__lte=end_timestamp)
+                logger.info(f"AnalysisTile.get_filtered_matches: Applied end date filter: {end_timestamp}")
+        else:
+            logger.info(f"AnalysisTile.get_filtered_matches: No date filter applied - returning most recent matches")
         
         # Apply match filter logic
         if self.match_filter == 'exclusive':
+            logger.info(f"AnalysisTile.get_filtered_matches: Applying exclusive filter")
             # Only include matches where ONLY these friends played (no other friends)
             all_friend_puuids = list(Friend.objects.filter(user=self.user).values_list('puuid', flat=True))
             other_friend_puuids = [p for p in all_friend_puuids if p not in friend_puuids]
@@ -130,12 +143,16 @@ class AnalysisTile(models.Model):
                 base_query = base_query.exclude(
                     participants__puuid__in=other_friend_puuids
                 )
+                logger.info(f"AnalysisTile.get_filtered_matches: Excluded {len(other_friend_puuids)} other friends")
         
         # Apply limit (use tile's max_matches_per_tile if no limit specified)
         if limit is None:
             limit = self.max_matches_per_tile
         
-        return base_query.order_by('-game_creation')[:limit]
+        final_query = base_query.order_by('-game_creation')[:limit]
+        logger.info(f"AnalysisTile.get_filtered_matches: Final query returns {final_query.count()} matches (limit: {limit})")
+        
+        return final_query
 
     @property
     def total_matches(self):

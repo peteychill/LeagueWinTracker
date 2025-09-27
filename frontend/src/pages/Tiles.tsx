@@ -68,6 +68,11 @@ const Tiles: React.FC = () => {
   const handleCreateTile = async () => {
     if (!newTile.name.trim() || newTile.friend_ids.length === 0) return;
 
+    console.log('Tiles: About to create tile with data:', newTile);
+    console.log('Tiles: Name:', newTile.name);
+    console.log('Tiles: Friend IDs:', newTile.friend_ids);
+    console.log('Tiles: Match filter:', newTile.match_filter);
+
     try {
       setSubmitting(true);
       const tile = await tileService.createTile(newTile);
@@ -75,6 +80,8 @@ const Tiles: React.FC = () => {
       resetForm();
       setDialogOpen(false);
     } catch (error: any) {
+      console.error('Tiles: Error in handleCreateTile:', error);
+      console.error('Tiles: Error response:', error.response?.data);
       setError(error.response?.data?.error || 'Failed to create tile');
     } finally {
       setSubmitting(false);
@@ -360,7 +367,7 @@ const Tiles: React.FC = () => {
             placeholder="2024-01-01"
             value={newTile.date_from}
             onChange={(e) => setNewTile({ ...newTile, date_from: e.target.value })}
-            helperText="Optional: Start date for match filtering (leave empty for all matches)"
+            helperText="Optional: Start date for match filtering (leave empty for most recent matches)"
             sx={{ mb: 2 }}
           />
 
@@ -372,7 +379,7 @@ const Tiles: React.FC = () => {
             placeholder="2024-12-31"
             value={newTile.date_to}
             onChange={(e) => setNewTile({ ...newTile, date_to: e.target.value })}
-            helperText="Optional: End date for match filtering (leave empty for all matches)"
+            helperText="Optional: End date for match filtering (leave empty for most recent matches)"
             sx={{ mb: 2 }}
           />
 
