@@ -65,16 +65,49 @@ TEMPLATES = [
 WSGI_APPLICATION = 'league_tracker.wsgi.application'
 
 # Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DBNAME', default='league_tracker'),
-        'USER': config('DBUSER', default='user'),
-        'PASSWORD': config('DBPW', default='password'),
-        'HOST': config('DBHOST', default='db'),
-        'PORT': config('DBPORT', default='5432'),
+# Try to use DATABASE_URL first (common in production), fall back to individual variables
+DATABASE_URL = config('DATABASE_URL', default=None)
+
+if DATABASE_URL:
+    # Parse DATABASE_URL (format: postgresql://user:password@host:port/database)
+    import re
+    match = re.match(r'postgresql://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)', DATABASE_URL)
+    if match:
+        user, password, host, port, database = match.groups()
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': database,
+                'USER': user,
+                'PASSWORD': password,
+                'HOST': host,
+                'PORT': port,
+            }
+        }
+    else:
+        # Fallback to individual variables if DATABASE_URL parsing fails
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': config('DBNAME', default='league_tracker'),
+                'USER': config('DBUSER', default='user'),
+                'PASSWORD': config('DBPW', default='password'),
+                'HOST': config('DBHOST', default='localhost'),
+                'PORT': config('DBPORT', default='5432'),
+            }
+        }
+else:
+    # Use individual environment variables
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('DBNAME', default='league_tracker'),
+            'USER': config('DBUSER', default='user'),
+            'PASSWORD': config('DBPW', default='password'),
+            'HOST': config('DBHOST', default='localhost'),
+            'PORT': config('DBPORT', default='5432'),
+        }
     }
-}
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
